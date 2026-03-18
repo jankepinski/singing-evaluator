@@ -6,6 +6,7 @@ import numpy as np
 import soundfile as sf
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydub import AudioSegment
 from typing import Optional
 
 from analyzer import (
@@ -17,11 +18,35 @@ from analyzer import (
     score_rhythm_tolerance,
 )
 
+def read_audio_file(file_bytes: bytes, filename: str) -> tuple[np.ndarray, int]:
+    """Read audio file, converting webm/opus to wav if needed."""
+    try:
+        # Try soundfile first (for wav, flac, etc.)
+        audio, sr = sf.read(io.BytesIO(file_bytes))
+        return audio, sr
+    except sf.LibsndfileError:
+        # If soundfile fails, try pydub for webm/opus conversion
+        try:
+            audio_segment = AudioSegment.from_file(io.BytesIO(file_bytes), format="webm")
+            # Convert to numpy array
+            samples = np.array(audio_segment.get_array_of_samples())
+            sr = audio_segment.frame_rate
+            
+            # Convert to float and normalize
+            if samples.dtype == np.int16:
+                samples = samples.astype(np.float32) / 32768.0
+            elif samples.dtype == np.int32:
+                samples = samples.astype(np.float32) / 2147483648.0
+            
+            return samples, sr
+        except Exception as e:
+            raise sf.LibsndfileError(f"Could not decode audio file: {e}")
+
 app = FastAPI(title="Singing Evaluator API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,7 +79,7 @@ async def analyze(
         if len(ref_bytes) == 0:
             raise HTTPException(status_code=400, detail="Reference audio file is empty")
 
-        ref_audio, ref_sr = sf.read(io.BytesIO(ref_bytes))
+        ref_audio, ref_sr = read_audio_file(ref_bytes, reference_audio.filename)
         if ref_audio.ndim > 1:
             ref_audio = ref_audio.mean(axis=1)  # Convert to mono
 
@@ -65,7 +90,7 @@ async def analyze(
         if len(user_bytes) == 0:
             raise HTTPException(status_code=400, detail="User audio file is empty")
 
-        user_audio_data, user_sr = sf.read(io.BytesIO(user_bytes))
+        user_audio_data, user_sr = read_audio_file(user_bytes, user_audio.filename)
         if user_audio_data.ndim > 1:
             user_audio_data = user_audio_data.mean(axis=1)
 

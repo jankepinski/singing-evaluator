@@ -1,9 +1,9 @@
 import math
 
-import crepe
 import librosa
 import numpy as np
-from madmom.features.onsets import PeakPickingProcessor, RNNOnsetProcessor
+import torch
+import torchcrepe
 
 
 def detect_pitch_yin(audio: np.ndarray, sr: int, fmin=50, fmax=2000):
@@ -89,32 +89,47 @@ def score_rhythm_tolerance(ref_onsets, user_onsets, offset_ms=0):
 
 
 def detect_pitch_crepe(audio: np.ndarray, sr: int):
-    """Detect pitch using CREPE deep learning model."""
-    time_stamps, frequencies, confidence, activation = crepe.predict(
-        audio, sr, viterbi=True
+    """Detect pitch using CREPE deep learning model via torchcrepe."""
+    # Convert numpy array to float32 tensor (torchcrepe expects float32)
+    audio_tensor = torch.from_numpy(audio.astype(np.float32)).unsqueeze(0)
+
+    # Run prediction with viterbi decoder
+    pitch, periodicity = torchcrepe.predict(
+        audio_tensor,
+        sample_rate=sr,
+        hop_length=None,
+        decoder=torchcrepe.decode.viterbi,
+        return_periodicity=True,
     )
 
-    # Filter low confidence predictions
+    # CREPE uses 10ms hop by default (100 fps)
+    hop_length = sr // 100  # samples per frame
+
+    # Convert results to time-frequency pairs
+    num_frames = pitch.size(1)
     results = []
-    for t, f, c in zip(time_stamps, frequencies, confidence):
-        if c > 0.5:  # Confidence threshold
-            results.append({"time": float(t), "freq": float(f)})
+    for i in range(num_frames):
+        conf = float(periodicity[0, i])
+        if conf > 0.5:
+            time_sec = i * hop_length / sr
+            results.append({"time": time_sec, "freq": float(pitch[0, i])})
 
     return results
 
 
 def detect_beats_madmom(audio: np.ndarray, sr: int):
-    """Detect beats using madmom RNN onset processor."""
-    from madmom.audio.signal import Signal
+    """Detect beats using librosa onset detection (madmom alternative)."""
+    # Use librosa's onset detection as a substitute for madmom RNN onset processor
+    onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
 
-    # Create Signal object
-    sig = Signal(audio, sample_rate=sr)
+    # Dynamic threshold for peak picking
+    times = librosa.times_like(onset_env, sr=sr)
 
-    # RNNOnsetProcessor works with Signal object
-    act = RNNOnsetProcessor()(sig)
+    # Find peaks in the onset envelope with adaptive threshold
+    peaks = []
+    threshold = 0.5 * onset_env.mean()
+    for i in range(1, len(onset_env) - 1):
+        if onset_env[i] > threshold and onset_env[i] > onset_env[i-1] and onset_env[i] > onset_env[i+1]:
+            peaks.append(times[i])
 
-    # Peak picking to get beat times
-    peak_picking = PeakPickingProcessor(fps=100, threshold=0.5)
-    beats = peak_picking(act)
-
-    return [float(b) for b in beats]
+    return [float(b) for b in peaks]

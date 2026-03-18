@@ -34,7 +34,7 @@ export function useRecorder() {
       };
       
       mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/wav" });
+        const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current?.mimeType || "audio/webm" });
         const offsetMs = (recordingStartTimeRef.current - playbackStartTimeRef.current) * 1000;
         onComplete({ blob, offsetMs });
         stream.getTracks().forEach(track => track.stop());
