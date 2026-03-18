@@ -100,6 +100,10 @@ async def analyze(
 
         return {
             "offset_ms": offset_ms,
+            "reference": {
+                "pitch_curve": ref_pitches_a[:100],  # Reference pitch curve for Flow A
+                "onsets": ref_onsets_a,              # Reference onsets
+            },
             "flow_a": {
                 "pitch_score": round(pitch_score_a, 1),
                 "rhythm_score": round(rhythm_score_a, 1),

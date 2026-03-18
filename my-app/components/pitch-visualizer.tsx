@@ -37,7 +37,7 @@ export function PitchVisualizer({
       point.user = userCurve[i].freq;
     }
     
-    if (point.reference || point.user) {
+    if (point.reference !== undefined || point.user !== undefined) {
       data.push(point);
     }
   }

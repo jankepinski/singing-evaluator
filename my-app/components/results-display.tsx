@@ -36,7 +36,7 @@ export function ResultsDisplay({ result }: ResultsDisplayProps) {
           </div>
 
           <PitchVisualizer
-            referenceCurve={result.flow_a.pitch_curve}
+            referenceCurve={result.reference.pitch_curve}
             userCurve={result.flow_a.pitch_curve}
             title="Pitch Comparison (Flow A)"
           />
@@ -71,7 +71,7 @@ export function ResultsDisplay({ result }: ResultsDisplayProps) {
           </div>
 
           <PitchVisualizer
-            referenceCurve={result.flow_b.pitch_curve}
+            referenceCurve={result.reference.pitch_curve}
             userCurve={result.flow_b.pitch_curve}
             title="Pitch Comparison (Flow B)"
           />

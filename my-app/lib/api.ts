@@ -2,6 +2,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface AnalysisResult {
   offset_ms: number;
+  reference: {
+    pitch_curve: { time: number; freq: number }[];
+    onsets: number[];
+  };
   flow_a: {
     pitch_score: number;
     rhythm_score: number;
