@@ -3,6 +3,7 @@
 import { AnalysisResult } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { PitchVisualizer } from "./pitch-visualizer";
 
 interface ResultsDisplayProps {
   result: AnalysisResult;
@@ -33,7 +34,13 @@ export function ResultsDisplay({ result }: ResultsDisplayProps) {
             </div>
             <Progress value={result.flow_a.rhythm_score} />
           </div>
-          
+
+          <PitchVisualizer
+            referenceCurve={result.flow_a.pitch_curve}
+            userCurve={result.flow_a.pitch_curve}
+            title="Pitch Comparison (Flow A)"
+          />
+
           <p className="text-xs text-gray-400">
             Processed in {result.flow_a.processing_time_ms}ms
           </p>
@@ -62,7 +69,13 @@ export function ResultsDisplay({ result }: ResultsDisplayProps) {
             </div>
             <Progress value={result.flow_b.rhythm_score} />
           </div>
-          
+
+          <PitchVisualizer
+            referenceCurve={result.flow_b.pitch_curve}
+            userCurve={result.flow_b.pitch_curve}
+            title="Pitch Comparison (Flow B)"
+          />
+
           <p className="text-xs text-gray-400">
             Processed in {result.flow_b.processing_time_ms}ms
           </p>
