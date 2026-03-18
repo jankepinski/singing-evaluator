@@ -31,15 +31,33 @@ async def analyze(
     user_audio: UploadFile = File(...),
     offset_ms: float = Form(0.0)
 ):
+    # Input validation - check files are present
+    if not reference_audio or not reference_audio.filename:
+        raise HTTPException(status_code=422, detail="Missing required file: reference_audio")
+    if not user_audio or not user_audio.filename:
+        raise HTTPException(status_code=422, detail="Missing required file: user_audio")
+
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
     try:
         # Read reference audio
         ref_bytes = await reference_audio.read()
+        if len(ref_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="Reference audio file too large (max 10MB)")
+        if len(ref_bytes) == 0:
+            raise HTTPException(status_code=400, detail="Reference audio file is empty")
+
         ref_audio, ref_sr = sf.read(io.BytesIO(ref_bytes))
         if ref_audio.ndim > 1:
             ref_audio = ref_audio.mean(axis=1)  # Convert to mono
 
         # Read user audio
         user_bytes = await user_audio.read()
+        if len(user_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="User audio file too large (max 10MB)")
+        if len(user_bytes) == 0:
+            raise HTTPException(status_code=400, detail="User audio file is empty")
+
         user_audio_data, user_sr = sf.read(io.BytesIO(user_bytes))
         if user_audio_data.ndim > 1:
             user_audio_data = user_audio_data.mean(axis=1)
@@ -86,5 +104,11 @@ async def analyze(
                 "user_onsets_count": len(user_onsets_a),
             }
         }
+    except sf.LibsndfileError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid audio file: {str(e)}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
