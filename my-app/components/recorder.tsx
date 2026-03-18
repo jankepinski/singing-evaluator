@@ -2,6 +2,7 @@
 
 import { useRecorder } from "@/hooks/use-recorder";
 import { Button } from "@/components/ui/button";
+import { useRef } from "react";
 
 interface RecorderProps {
   referenceAudioUrl: string | null;
@@ -10,25 +11,44 @@ interface RecorderProps {
 
 export function Recorder({ referenceAudioUrl, onRecordingComplete }: RecorderProps) {
   const { isRecording, recordingTime, startRecording, stopRecording } = useRecorder();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleStart = async () => {
     if (!referenceAudioUrl) {
       alert("Please upload reference audio first");
       return;
     }
-    
-    // Start playback
+
+    // Create and preload audio
     const audio = new Audio(referenceAudioUrl);
+    audio.preload = "auto";
+    audioRef.current = audio;
+
+    // Wait for audio to be ready before starting recording
+    await new Promise<void>((resolve, reject) => {
+      audio.oncanplaythrough = () => resolve();
+      audio.onerror = (e) => reject(e);
+      audio.load();
+    });
+
+    // Start playback
     await audio.play();
-    
+
     // Start recording
     await startRecording(({ blob, offsetMs }) => {
-      audio.pause();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       onRecordingComplete(blob, offsetMs);
     });
   };
 
   const handleStop = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     stopRecording();
   };
 

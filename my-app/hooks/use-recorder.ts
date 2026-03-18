@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 interface RecordingResult {
   blob: Blob;
@@ -67,6 +67,19 @@ export function useRecorder() {
       setIsRecording(false);
       setRecordingTime(0);
     }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (mediaRecorderRef.current?.state !== "inactive") {
+        mediaRecorderRef.current?.stop();
+      }
+      if (audioContextRef.current?.state !== "closed") {
+        audioContextRef.current?.close();
+      }
+    };
   }, []);
 
   return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AudioUploader } from "@/components/audio-uploader";
 import { Recorder } from "@/components/recorder";
 
@@ -12,6 +12,13 @@ export default function Home() {
     setReferenceFile(file);
     setReferenceUrl(URL.createObjectURL(file));
   };
+
+  // Cleanup blob URL on unmount or when referenceUrl changes
+  useEffect(() => {
+    return () => {
+      if (referenceUrl) URL.revokeObjectURL(referenceUrl);
+    };
+  }, [referenceUrl]);
 
   const handleRecordingComplete = (blob: Blob, offsetMs: number) => {
     console.log("Recording complete:", { blob, offsetMs });
