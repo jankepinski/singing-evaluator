@@ -8,7 +8,14 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
-from analyzer import detect_onsets, detect_pitch_yin, score_pitch_cents, score_rhythm_tolerance
+from analyzer import (
+    detect_beats_madmom,
+    detect_onsets,
+    detect_pitch_crepe,
+    detect_pitch_yin,
+    score_pitch_cents,
+    score_rhythm_tolerance,
+)
 
 app = FastAPI(title="Singing Evaluator API")
 
@@ -80,6 +87,17 @@ async def analyze(
         rhythm_score_a = score_rhythm_tolerance(ref_onsets_a, user_onsets_a, offset_ms)
         flow_a_time = (time.time() - start_time) * 1000
 
+        # Flow B - AI (CREPE + madmom)
+        start_time = time.time()
+        ref_pitches_b = detect_pitch_crepe(ref_audio, target_sr)
+        user_pitches_b = detect_pitch_crepe(user_audio_data, target_sr)
+        ref_beats_b = detect_beats_madmom(ref_audio, target_sr)
+        user_beats_b = detect_beats_madmom(user_audio_data, target_sr)
+
+        pitch_score_b = score_pitch_cents(ref_pitches_b, user_pitches_b, offset_ms)
+        rhythm_score_b = score_rhythm_tolerance(ref_beats_b, user_beats_b, offset_ms)
+        flow_b_time = (time.time() - start_time) * 1000
+
         return {
             "offset_ms": offset_ms,
             "flow_a": {
@@ -90,12 +108,11 @@ async def analyze(
                 "processing_time_ms": round(flow_a_time, 1),
             },
             "flow_b": {
-                "pitch_score": 0,
-                "rhythm_score": 0,
-                "pitch_curve": [],
-                "beats": [],
-                "processing_time_ms": 0,
-                "status": "not_implemented"
+                "pitch_score": round(pitch_score_b, 1),
+                "rhythm_score": round(rhythm_score_b, 1),
+                "pitch_curve": user_pitches_b[:100],
+                "beats": user_beats_b,
+                "processing_time_ms": round(flow_b_time, 1),
             },
             "debug": {
                 "ref_pitches_count": len(ref_pitches_a),

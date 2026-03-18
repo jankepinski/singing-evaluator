@@ -1,7 +1,9 @@
 import math
 
+import crepe
 import librosa
 import numpy as np
+from madmom.features.onsets import PeakPickingProcessor, RNNOnsetProcessor
 
 
 def detect_pitch_yin(audio: np.ndarray, sr: int, fmin=50, fmax=2000):
@@ -84,3 +86,35 @@ def score_rhythm_tolerance(ref_onsets, user_onsets, offset_ms=0):
             matched += 1
 
     return (matched / len(ref_onsets)) * 100
+
+
+def detect_pitch_crepe(audio: np.ndarray, sr: int):
+    """Detect pitch using CREPE deep learning model."""
+    time_stamps, frequencies, confidence, activation = crepe.predict(
+        audio, sr, viterbi=True
+    )
+
+    # Filter low confidence predictions
+    results = []
+    for t, f, c in zip(time_stamps, frequencies, confidence):
+        if c > 0.5:  # Confidence threshold
+            results.append({"time": float(t), "freq": float(f)})
+
+    return results
+
+
+def detect_beats_madmom(audio: np.ndarray, sr: int):
+    """Detect beats using madmom RNN onset processor."""
+    from madmom.audio.signal import Signal
+
+    # Create Signal object
+    sig = Signal(audio, sample_rate=sr)
+
+    # RNNOnsetProcessor works with Signal object
+    act = RNNOnsetProcessor()(sig)
+
+    # Peak picking to get beat times
+    peak_picking = PeakPickingProcessor(fps=100, threshold=0.5)
+    beats = peak_picking(act)
+
+    return [float(b) for b in beats]

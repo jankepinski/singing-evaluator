@@ -60,3 +60,39 @@ def test_score_rhythm_tolerance():
     score = score_rhythm_tolerance(ref_onsets, user_onsets, offset_ms=0)
 
     assert score == 75.0  # 3/4 matched
+
+
+def test_detect_pitch_crepe():
+    import numpy as np
+    from analyzer import detect_pitch_crepe
+
+    # Create 440Hz sine wave
+    sr = 22050
+    duration = 1.0
+    t = np.linspace(0, duration, int(sr * duration))
+    audio = 0.5 * np.sin(2 * np.pi * 440 * t)
+
+    pitches = detect_pitch_crepe(audio, sr)
+
+    assert len(pitches) > 0
+    # CREPE should detect approximately 440Hz (more accurate than YIN)
+    avg_pitch = np.mean([p["freq"] for p in pitches])
+    assert abs(avg_pitch - 440) < 5
+
+
+def test_detect_beats_madmom():
+    import numpy as np
+    from analyzer import detect_beats_madmom
+
+    # Create audio with clear beats (impulse train)
+    sr = 22050
+    duration = 2.0
+    t = np.linspace(0, duration, int(sr * duration))
+    audio = np.zeros_like(t)
+    # Create impulses at 0.5s and 1.0s
+    audio[int(0.5*sr):int(0.5*sr)+1000] = 0.5
+    audio[int(1.0*sr):int(1.0*sr)+1000] = 0.5
+
+    beats = detect_beats_madmom(audio, sr)
+
+    assert len(beats) >= 1
